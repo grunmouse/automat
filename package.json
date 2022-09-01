@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@grunmouse/multioperator-set-theory": "link:..\\multioperator-set-theory",
     "@grunmouse/special-map": "link:..\\special-map"
   }
 }
