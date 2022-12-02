@@ -12,5 +12,8 @@
     "@grunmouse/multioperator-set-theory": "link:..\\multioperator-set-theory",
     "@grunmouse/special-map": "link:..\\special-map",
     "regexp-tree": "^0.1.24"
+  },
+  "devDependencies": {
+    "@grunmouse/prover": "link:..\\prover"
   }
 }

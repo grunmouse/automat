@@ -45,9 +45,6 @@ class FA{
 		this.Q = new Set(M.Q);
 		this.T = new Set(M.T);
 		this.d = cloneTable(M.d);
-		if(M.devil){
-			addDevilStateInto(this);
-		}
 	}
 }
 
@@ -55,6 +52,20 @@ class DFA extends FA{
 	constructor(M){
 		super(M);
 		this.s = M.s;
+		if(M.devil){
+			addDevilStateInto(this);
+		}
+	}
+	
+	run(itrSymbols){
+		let state = this.s;
+		for(let sym of itrSymbols){
+			if(!this.A.has(sym)){
+				throw new RangeError(`Character ${sym} not from the alphabet`);
+			}
+			state = this.d.get(state, sym);
+		}
+		return state;
 	}
 }
 
@@ -72,7 +83,7 @@ class NFA extends FA{
 		for(let index = 0; index<queue.length; ++index){
 			let q = queue[index];
 			let R = this.d.get(q, '');
-			for(let r of R){
+			if(R) for(let r of R){
 				if(!queue.includes(r)){
 					queue.push(r);
 				}
@@ -93,6 +104,17 @@ class NFA extends FA{
 		result = new Set(result);
 		return epsClosure(result);
 	}
+	
+	run(itrSymbols, state){
+		state = state || this.S;
+		for(let sym of itrSymbols){
+			if(!this.A.has(sym)){
+				throw new RangeError(`Character ${sym} not from the alphabet`);
+			}
+			state = this.next(state, sym);
+		}
+		return state;
+	}
 }
  
 /**
@@ -108,7 +130,7 @@ function makeMultipleTable(A1, A2){
 	const Q = new Set(), m = new MapOfMap(), n = new Map();
 	for(let q1 of A1){
 		for(let q2 of A2){
-			let q = Symbol(q1 + '.' + q2);
+			let q = Symbol(/* q1 + '.' + q2 */);
 			m.set(q1, q2, q);
 			n.set(q, [q1, q2]);
 			Q.add(q);
@@ -131,8 +153,8 @@ function makeMultipleTable(A1, A2){
  */
 function multipleSetWithTable(table, T1, T2){
 	const Q = new Set()
-	for(let q1 of A1){
-		for(let q2 of A2){
+	for(let q1 of T1){
+		for(let q2 of T2){
 			Q.add(table.get(q1, q2));
 		}
 	}
@@ -238,7 +260,8 @@ function complementDFA(A){
 	return C;
 }
 
-operation.complement.def(DFA, complementDFA);
+operators.complement.def(DFA, complementDFA);
+operators.complement.useName(DFA);
 
 /**
  * Объединение конечных автоматов
@@ -253,7 +276,8 @@ function joinDFA(A1, A2){
 	return A;
 }
 
-operation.union.def(DFA, DFA, joinDFA);
+operators.union.def(DFA, DFA, joinDFA);
+operators.union.useName(DFA);
 
 
 
@@ -265,7 +289,8 @@ function intersectDFA(A1, A2){
 	return A;
 }
 
-operation.intersection.def(DFA, DFA, intersectDFA);
+operators.intersection.def(DFA, DFA, intersectDFA);
+operators.intersection.useName(DFA);
 
 /**
  * Разность конечных автоматов
@@ -274,7 +299,8 @@ function subtraceDFA(A, B){
 	return intersectDFA(A, complementDFA(B));
 }
 
-operation.difference.def(DFA, DFA, subtraceDFA );
+operators.difference.def(DFA, DFA, subtraceDFA );
+operators.difference.useName(DFA );
 
 
 function findEquivalenceClasses(M){
@@ -347,7 +373,7 @@ function minimizeDFA(A){
 	let d = new MapOfMap(Array.from(Q, (q)=>([q, A.d.get(q)])));
 	//Q - достижимые состояния, d - таблица перехода для достижимых состояний
 	
-	let classesMap = findEquivalenceClasses({Q, d, A.A, A.T});
+	let classesMap = findEquivalenceClasses({Q, d, A:A.A, T:A.T});
 	
 	let d1 = new MapOfMap();
 	for(let [q, a, r] of d){
@@ -357,7 +383,7 @@ function minimizeDFA(A){
 	}
 	let Q1 = classesMap.values();
 	
-	return new DFA({Q:Q1, d:d1, A:A.A, s:A.s, T:Q1[INTERSECTION](A.T));
+	return new DFA({Q:Q1, d:d1, A:A.A, s:A.s, T:Q1[INTERSECTION](A.T)});
 }
 
 
@@ -430,3 +456,11 @@ function determineNFA(A){
 	
 	return new DFA({Q, A:A.A, T, s, d:d1});
 }
+
+module.exports = {
+	DFA,
+	NFA,
+	minimizeDFA,
+	reverseDFA,
+	determineNFA
+};
