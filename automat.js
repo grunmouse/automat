@@ -1,4 +1,5 @@
-const {MapOfMap} = require('@grunmouse/special-map');
+const {MapOfMap, MapNOfSet} = require('@grunmouse/special-map');
+const Map2OfSet = MapNOfSet(2);
 const {
 	symbols:{UNION, INTERSECTION, DIFFERENCE, COMPLEMENT}, 
 	operators
@@ -39,18 +40,26 @@ function cloneTable(t){
 	return d;
 }
 
+function cloneTableSet(t){
+	const d = new Map2OfSet();
+	for(let [q, a, r] of t){
+		d.add(q, a, r);
+	}
+	return d;
+}
+
 class FA{
 	constructor(M){
 		this.A = new Set(M.A);
 		this.Q = new Set(M.Q);
 		this.T = new Set(M.T);
-		this.d = cloneTable(M.d);
 	}
 }
 
 class DFA extends FA{
 	constructor(M){
 		super(M);
+		this.d = cloneTable(M.d);
 		this.s = M.s;
 		if(M.devil){
 			addDevilStateInto(this);
@@ -67,11 +76,16 @@ class DFA extends FA{
 		}
 		return state;
 	}
+	
+	hasAccept(state){
+		return this.T.has(state);
+	}
 }
 
 class NFA extends FA{
 	constructor(M){
 		super(M);
+		this.d = cloneTableSet(M.d);
 		this.S = new Set(M.S);
 	}
 	
@@ -102,7 +116,7 @@ class NFA extends FA{
 			result.push(...R);
 		}
 		result = new Set(result);
-		return epsClosure(result);
+		return this.epsClosure(result);
 	}
 	
 	run(itrSymbols, state){
@@ -114,6 +128,11 @@ class NFA extends FA{
 			state = this.next(state, sym);
 		}
 		return state;
+	}
+	
+	hasAccept(state){
+		let fin = [...state].filter((q)=>(this.T.has(q)));
+		return fin.length >0;
 	}
 }
  
@@ -214,25 +233,37 @@ function multipleDFA(A1, A2){
  * @return {A.Q|undefined} - состояние из множества состояний конечного автомата или ничего
  */
 function findDevilState(A){
-	state:for(let q of A.Q){
-		for(let a of A.A){
-			if(A.d.get(q, a) !== q){
-				continue state;
-			}
+	for(let q of A.Q){
+		if(isDevilState(A, q)){
+			return q
 		}
-		return q
 	}
+}
+
+function isDevilState(A, q){
+	let rules = A.d.get(q);
+	for(let [s, r] of rules){
+		if(r != q){
+			return false;
+		}
+	}
+	return rules.size === A.A.size;
 }
 
 /**
  * Добавляет в автомат "дьявольское состояние"
  */
 function addDevilStateInto(A){
-	if(findDevilState(A)){
+	if(A.devil && isDevilState(A, A.devil)){
+		return A;
+	}
+	let devil = findDevilState(A);
+	if(devil){
+		A.devil = devil;
 		return A;
 	}
 	
-	let devil = Symbol('Devil');
+	devil = Symbol('Devil');
 	for(let a of A.A){
 		A.d.set(devil, a, devil);
 	}
@@ -245,6 +276,7 @@ function addDevilStateInto(A){
 	}
 	A.Q = new Set(A.Q);
 	A.Q.add(devil);
+	A.devil = devil;
 	
 	return A;
 }
@@ -350,6 +382,9 @@ function findEquivalenceClasses(M){
 	return classesMap;
 }
 
+/**
+ * Получить достижимые состояния
+ */
 function reachableStates(A){
 	let Q = new Set([A.s]);
 	let count = Q.size;
@@ -393,16 +428,11 @@ function minimizeDFA(A){
  * @return NFA
  */
 function reverseDFA(A){
-	const d1 = new MapOfMap();
+	const d1 = new Map2OfSet();
 	
 	for(let [q, a, r] of A.d){
-		let s = d1.get(r, a);
-		if(!s){
-			s = new Set([q]);
-			d1.set(r, a, s);
-		}
-		else{
-			s.add(q);
+		if(r !== A.devil){
+			d1.add(r, a, q);
 		}
 	}
 	
@@ -415,7 +445,7 @@ function reverseDFA(A){
 function determineNFA(A){
 	const qOrder = [...A.Q[DIFFERENCE](A.T)];
 	const countN = qOrder.length;
-	qOrder.push(A.T);
+	qOrder.push(...A.T); //Финальные состояния переносятся в конец списка
 	
 	/**
 	 * Кодовый номер множества состояний

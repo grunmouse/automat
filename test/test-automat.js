@@ -36,14 +36,16 @@ describe('inverse & determine', ()=>{
 			const A = sample.oneString(str, abc);
 			
 			const NF = reverseDFA(A);
+			//console.log(A);
+			//console.log(NF);
+			const revStr = str.split('').reverse().join('');
+			const res = NF.run(revStr);
+			
+			assert.ok(NF.hasAccept(res), 'accept reverse string');
+			assert.ok(!NF.hasAccept(NF.run(t)), 'not accept another string');
+
 			const notA = determineNFA(NF);
-			
-			const res = A.run(str);
-			
-			assert.ok(notA.T.has(notA.run(t)), 'accept another string');
-			if(t != str){
-				assert.ok(!notA.T.has(notA.run(t)), 'not accept same string');
-			}
+			debugger;
 		}
 	);
 	
